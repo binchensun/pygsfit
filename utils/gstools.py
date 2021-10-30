@@ -1,12 +1,16 @@
-import numpy as np
-import os, platform
-import astropy.units as u
-from astropy import constants as const
 import ctypes
+import os
+import platform
+import warnings
+
+import astropy.units as u
+import numpy as np
+from astropy import constants as const
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
-import warnings
+import functools
 warnings.simplefilter("default")
+
 
 def initGET_MW(libname):
     """
@@ -25,6 +29,7 @@ def initGET_MW(libname):
     mwfunc.restype = ctypes.c_int
 
     return mwfunc
+
 
 def sfu2tb(frequency, flux, area=None, size=None, square=True, reverse=False, verbose=False):
     """
@@ -106,6 +111,7 @@ def sfu2tb(frequency, flux, area=None, size=None, square=True, reverse=False, ve
             print('converting input flux density in sfu to brightness temperature in K.')
         return (flux * factor).to(u.K, equivalencies=u.dimensionless_angles())
 
+
 def ff_emission(em, T=1.e7, Z=1., mu=1.e10):
     T = T * u.k
     mu = mu * u.Hz
@@ -125,7 +131,9 @@ def ff_emission(em, T=1.e7, Z=1., mu=1.e10):
 
 class GSCostFunctions:
     def SinglePowerLawMinimizerOneSrc(fit_params, freqghz, spec=None, spec_err=None,
-                                      spec_in_tb=True, pgplot_widget=None, show_plot=False, debug=False, verbose=False):
+                                      spec_in_tb=True, pgplot_widget=None, show_plot=False, debug=False,
+                                      elec_distribution=3,
+                                      verbose=False):
         """
         params: parameters defined by lmfit.Paramters()
         freqghz: frequencies in GHz
@@ -143,7 +151,7 @@ class GSCostFunctions:
         if platform.system() == 'Linux' or platform.system() == 'Darwin':
             libname = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                    '../binaries/MWTransferArr.so')
-        if platform.system() == 'Windows': ##TODO: not yet tested on Windows platform
+        if platform.system() == 'Windows':  ##TODO: not yet tested on Windows platform
             libname = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                    '../binaries/MWTransferArr64.dll')
         GET_MW = initGET_MW(libname)  # load the library
@@ -194,7 +202,7 @@ class GSCostFunctions:
         ParmLocal[1] = Tth  # T_0, K
         ParmLocal[2] = nth  # n_0 - thermal electron density, cm^{-3}
         ParmLocal[3] = Bmag  # B - magnetic field, G
-        ParmLocal[6] = 3  # distribution over energy (PLW is chosen)
+        ParmLocal[6] = elec_distribution  # distribution over energy (PLW is chosen)
         ParmLocal[7] = nrl  # n_b - nonthermal electron density, cm^{-3}
         ParmLocal[9] = Emin  # E_min, MeV
         ParmLocal[10] = Emax  # E_max, MeV
@@ -237,22 +245,22 @@ class GSCostFunctions:
                     if len(all_items) > 0:
                         pgplot_widget.removeItem(all_items[-1])
                     spec_fitplot = pgplot_widget.plot(x=np.log10(freqghz), y=np.log10(mtb),
-                                                             pen=dict(color=pg.mkColor(0), width=3),
-                                                             symbol=None, symbolBrush=None)
+                                                      pen=dict(color=pg.mkColor(0), width=3),
+                                                      symbol=None, symbolBrush=None)
                     pgplot_widget.addItem(spec_fitplot)
 
                 if show_plot:
                     import matplotlib.pyplot as plt
                     fig, (ax1, ax2) = plt.subplots(1, 2)
                     ax1.plot(freqghz, mflux, 'k')
-                    #ax1.set_xlim([1, 20])
+                    # ax1.set_xlim([1, 20])
                     ax1.set_xlabel('Frequency (GHz)')
                     ax1.set_ylabel('Flux (sfu)')
                     ax1.set_title('Flux Spectrum')
                     ax1.set_xscale('log')
                     ax1.set_yscale('log')
                     ax2.plot(freqghz, mtb, 'k')
-                    #ax2.set_xlim([1, 20])
+                    # ax2.set_xlim([1, 20])
                     ax2.set_xlabel('Frequency (GHz)')
                     ax2.set_ylabel('Brightness Temperature (K)')
                     ax2.set_title('Brightness Temperature Spectrum')
@@ -289,3 +297,5 @@ class GSCostFunctions:
             # Return scaled residual
             return (mflux - spec) / spec_err
 
+    #Define thermal_distribution case as a new function.
+    ThermalDistributionMinimizerOneSrc = functools.partial(SinglePowerLawMinimizerOneSrc, elec_distribution=2)
