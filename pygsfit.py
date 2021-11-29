@@ -128,7 +128,7 @@ class App(QMainWindow):
         self.calpha = 1.
         self.pgcmap = self._create_pgcmap(cmap='viridis', ncolorstop=6)
         self.str_mini_dict = {'powerlaw': gstools.GSCostFunctions.SinglePowerLawMinimizerOneSrc,
-                              'thermal': gstools.GSCostFunctions.ThermalDistributionMinimizerOneSrc}
+                              'thermal f-f + gyrores': gstools.GSCostFunctions.ThermalDistributionMinimizerOneSrc}
         # initialize the window
         # self.initUI()
         self.initUItab_explorer()
@@ -671,7 +671,7 @@ class App(QMainWindow):
         ele_function_box = QHBoxLayout()
         self.ele_function_selector_widget = QComboBox()
         self.ele_function_selector_widget.addItems(
-            ["powerlaw", "double_Powerlaw", "thermal f-f + gyrores", "thermal f-f", "thermal"])
+            ["powerlaw", "double_Powerlaw", "thermal f-f + gyrores", "thermal f-f"])
         self.ele_function_selector_widget.currentIndexChanged.connect(self.ele_function_selector)
         ele_function_box.addWidget(QLabel("Electron Dist. Function"))
         ele_function_box.addWidget(self.ele_function_selector_widget)
@@ -1710,7 +1710,6 @@ class App(QMainWindow):
                 print(self.tp_cal_factor)
         else:
             print('Either image time or calibrated total power dynamic spectrum does not exist.')
-
     def apply_tpcal_factor(self):
         if self.apply_tpcal_factor_button.isChecked() == True:
             self.statusBar.showMessage('Apply total power correction factor to data.')
@@ -1852,25 +1851,7 @@ class App(QMainWindow):
                 if par.vary:
                     self.fit_params_nvarys += 1
 
-            self.fit_function = gstools.GSCostFunctions.Ff_Gyroresonance_MinimizerOneSrc
-            self.update_fit_param_widgets()
-
-        if self.ele_dist == 'thermal':
-            self.fit_params = lmfit.Parameters()
-            self.fit_params.add_many(('Bx100G', 2., True, 0.1, 100., None, None),
-                                     ('log_nnth', 5., False, 3., 11, None, None),
-                                     ('delta', 4., False, 1., 30., None, None),
-                                     ('Emin_keV', 10., False, 1., 100., None, None),
-                                     ('Emax_MeV', 10., False, 0.05, 100., None, None),
-                                     ('theta', 45., True, 0.01, 89.9, None, None),
-                                     ('log_nth', 10, True, 4., 13., None, None),
-                                     ('T_MK', 1., True, 0.1, 100, None, None),
-                                     ('depth_asec', 5., False, 1., 100., None, None))
-            self.fit_params_nvarys = 0
-            for key, par in self.fit_params.items():
-                if par.vary:
-                    self.fit_params_nvarys += 1
-
+            #self.fit_function = gstools.GSCostFunctions.Ff_Gyroresonance_MinimizerOneSrc
             self.fit_function = gstools.GSCostFunctions.ThermalDistributionMinimizerOneSrc
             self.update_fit_param_widgets()
 
