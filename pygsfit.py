@@ -1711,6 +1711,17 @@ class App(QMainWindow):
         else:
             print('Either image time or calibrated total power dynamic spectrum does not exist.')
     def apply_tpcal_factor(self):
+        tmp_factor = [1.09870535, 1.36658675, 1.50554223, 1.54394157, 1.51015454, 1.43255089,
+                      1.35397751, 1.30251008, 1.32144304, 1.27943386, 1.23025389, 1.18283073,
+                      1.14602986, 1.11909686, 1.09038089, 1.06365912, 1.07244361, 1.06950778,
+                      1.07796366, 1.09064427, 1.10988873, 1.1251372, 1.13275342, 1.13704686,
+                      1.14976966, 1.13768776, 1.1102025, 1.1026398, 1.09545799, 1.0814705,
+                      1.05051706, 1.02019917, 0.98759613, 1.00094723, 1.10699319, 1.09818245,
+                      1.08007937, 1.11018083, 0.95390751, 0.70071437, 0.7604342, 0.73968379,
+                      0.30822303, 0.72793464, 0.98570907, 1.23174011, 1.40302732, 1.44182654,
+                      1.29039364, 0.89098445]
+        self.tp_cal_factor = 1. / np.array(tmp_factor[0:self.meta['nfreq']])
+        print( self.tp_cal_factor)
         if self.apply_tpcal_factor_button.isChecked() == True:
             self.statusBar.showMessage('Apply total power correction factor to data.')
             self.data[self.pol_select_idx] /= self.tp_cal_factor[:, None, None]
