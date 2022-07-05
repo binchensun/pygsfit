@@ -79,6 +79,7 @@ class App(QMainWindow):
         self.setGeometry(self.left, self.top, self.width, self.height)
         self._main = QWidget()
         self.setCentralWidget(self._main)
+        self.ele_dist = 'powerlaw'
         self.fit_method = 'nelder'
         self.fit_params = lmfit.Parameters()
         self.fit_params.add_many(('Bx100G', 2., True, 0.1, 100., None, None),
@@ -126,6 +127,8 @@ class App(QMainWindow):
         self.clevels = np.array([0.3, 0.7])
         self.calpha = 1.
         self.pgcmap = self._create_pgcmap(cmap='viridis', ncolorstop=6)
+        self.str_mini_dict = {'powerlaw': gstools.GSCostFunctions.SinglePowerLawMinimizerOneSrc,
+                              'thermal f-f + gyrores': gstools.GSCostFunctions.ThermalDistributionMinimizerOneSrc}
         # initialize the window
         # self.initUI()
         self.initUItab_explorer()
@@ -276,6 +279,13 @@ class App(QMainWindow):
 
         # Creating menus using a title
         editMenu = menubar.addMenu("&Edit")
+
+        #Creating menus to control the parameters
+        actionParams = menubar.addMenu("Parameters")
+
+        action_PasteRestoInit = QAction("Paste Result to Init", self)
+        action_PasteRestoInit.triggered.connect(self.update_init_guess)
+        actionParams.addAction(action_PasteRestoInit)
         # helpMenu = menuBar.addMenu(" &Help")
         # self.menu_layout.addWidget(menuBar)
 
@@ -1535,13 +1545,13 @@ class App(QMainWindow):
     def exec_customized_rois_window(self):
         try:
             self.customized_rois_Form = QDialog()
-            ui = roiutils.roi_dialog(img_size=[self.meta['nx'], self.meta['ny']], cfreqs = self.cfreqs)
+            ui = roiutils.roi_dialog(img_size=[self.meta['nx'], self.meta['ny']], cfreqs=self.cfreqs)
             ui.setupUi(self.customized_rois_Form)
             self.customized_rois_Form.show()
             cur_result = self.customized_rois_Form.exec()
             crtf_list = ui.getResult(self.customized_rois_Form)
-            print('cur_result: ',crtf_list)
-            return (crtf_list,cur_result)
+            print('cur_result: ', crtf_list)
+            return (crtf_list, cur_result)
         except:
             msg_box = QMessageBox(QMessageBox.Warning, 'No EOVSA Image Loaded', 'Load EOVSA Image first!')
             msg_box.exec_()
@@ -1551,7 +1561,7 @@ class App(QMainWindow):
         if not dialog_output[1] or len(dialog_output[0]) == 0:
             print('No ROI is added!')
         else:
-            roiutils.add_md_rois(self, inp_str_list =dialog_output[0])
+            roiutils.add_md_rois(self, inp_str_list=dialog_output[0])
 
     def calc_roi_spec(self, evt):
         # print('=================Update ROI SPEC===============')
@@ -1700,8 +1710,18 @@ class App(QMainWindow):
                 print(self.tp_cal_factor)
         else:
             print('Either image time or calibrated total power dynamic spectrum does not exist.')
-
     def apply_tpcal_factor(self):
+        tmp_factor = [1.09870535, 1.36658675, 1.50554223, 1.54394157, 1.51015454, 1.43255089,
+                      1.35397751, 1.30251008, 1.32144304, 1.27943386, 1.23025389, 1.18283073,
+                      1.14602986, 1.11909686, 1.09038089, 1.06365912, 1.07244361, 1.06950778,
+                      1.07796366, 1.09064427, 1.10988873, 1.1251372, 1.13275342, 1.13704686,
+                      1.14976966, 1.13768776, 1.1102025, 1.1026398, 1.09545799, 1.0814705,
+                      1.05051706, 1.02019917, 0.98759613, 1.00094723, 1.10699319, 1.09818245,
+                      1.08007937, 1.11018083, 0.95390751, 0.70071437, 0.7604342, 0.73968379,
+                      0.30822303, 0.72793464, 0.98570907, 1.23174011, 1.40302732, 1.44182654,
+                      1.29039364, 0.89098445]
+        self.tp_cal_factor = 1. / np.array(tmp_factor[0:self.meta['nfreq']])
+        print( self.tp_cal_factor)
         if self.apply_tpcal_factor_button.isChecked() == True:
             self.statusBar.showMessage('Apply total power correction factor to data.')
             self.data[self.pol_select_idx] /= self.tp_cal_factor[:, None, None]
@@ -1826,7 +1846,6 @@ class App(QMainWindow):
 
             self.update_fit_param_widgets()
 
-
         if self.ele_dist == 'thermal f-f + gyrores':
             self.fit_params = lmfit.Parameters()
             self.fit_params.add_many(('Bx100G', 2., True, 0.1, 100., None, None),
@@ -1843,7 +1862,8 @@ class App(QMainWindow):
                 if par.vary:
                     self.fit_params_nvarys += 1
 
-            self.fit_function = gstools.GSCostFunctions.Ff_Gyroresonance_MinimizerOneSrc
+            #self.fit_function = gstools.GSCostFunctions.Ff_Gyroresonance_MinimizerOneSrc
+            self.fit_function = gstools.GSCostFunctions.ThermalDistributionMinimizerOneSrc
             self.update_fit_param_widgets()
 
     def init_fit_kws(self):
@@ -1883,13 +1903,11 @@ class App(QMainWindow):
             self.fit_kws_key_widgets.append(fit_kws_key_widget)
             self.fit_kws_value_widgets.append(fit_kws_value_widget)
             self.fit_kws_box.addWidget(fit_kws_value_widget)
-
     def update_fit_param_widgets(self):
         # first delete every widget for the fit parameters
         if self.fit_param_box.count() > 0:
             for n in reversed(range(self.fit_param_box.count())):
                 self.fit_param_box.itemAt(n).widget().deleteLater()
-
         self.param_init_value_widgets = []
         self.param_vary_widgets = []
         self.param_min_widgets = []
@@ -1940,6 +1958,12 @@ class App(QMainWindow):
             self.param_min_widgets.append(param_min_widget)
             self.param_max_widgets.append(param_max_widget)
             self.param_fit_value_widgets.append(param_fit_value_widget)
+
+    def update_init_guess(self):
+        #Paste the fitting result to the initial value
+        for n, key in enumerate(self.fit_params):
+            self.param_init_value_widgets[n].setValue(self.fit_params_res[key].value)
+            self.fit_params[key].init_value = self.fit_params_res[key].value
 
     def update_fit_kws(self):
         # print('==========Parameters Updated To the Following=======')
@@ -2047,10 +2071,10 @@ class App(QMainWindow):
 
         if hasattr(self, 'spec_fitplot'):
             self.speccanvas.removeItem(self.spec_fitplot)
-
-        mini = lmfit.Minimizer(gstools.GSCostFunctions.SinglePowerLawMinimizerOneSrc, self.fit_params,
+        mini = lmfit.Minimizer(self.str_mini_dict[self.ele_dist], self.fit_params,
                                fcn_args=(freqghz_tofit,),
-                               fcn_kws={'spec': spec_tofit, 'spec_err': spec_err_tofit, 'spec_in_tb': self.spec_in_tb},
+                               fcn_kws={'spec': spec_tofit, 'spec_err': spec_err_tofit,
+                                        'spec_in_tb': self.spec_in_tb},
                                max_nfev=max_nfev, nan_policy='omit')
         method = self.fit_method
         mi = mini.minimize(method=method, **fit_kws)
